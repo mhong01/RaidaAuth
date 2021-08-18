@@ -11,7 +11,8 @@ public class MainAuthenticator {
 	public static void main(String[] args) {
 		c = new CheckingRAIDA();
 		System.out.println(c.checkingRaida());
-	}   
+		c.setupTempSystem();
+	}
 
 	
 }
