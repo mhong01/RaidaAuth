@@ -84,6 +84,7 @@ public class CheckingRAIDA {
         if(!sm.isRAIDAOK()) {
             System.out.println("Raida not OK");
         }
+        ps.dstWallet = w;
         ps.dstWallet.setPassword(ps.typedPassword);
         sm.setActiveWalletObj(ps.dstWallet);
         for (String filename : ps.files) {
