@@ -18,6 +18,7 @@ public class CheckingRAIDA {
     private ProgramState ps;
 
     private GLogger logger;
+    
 
     public CheckingRAIDA() {
         initSystem();
@@ -146,33 +147,17 @@ public class CheckingRAIDA {
             final Object fresult = result;
             final AuthenticatorResult ar = (AuthenticatorResult) fresult;
             if (ar.status == AuthenticatorResult.STATUS_ERROR) {
-                EventQueue.invokeLater(new Runnable() {
-                    public void run() {
-                        if (!ar.errText.isEmpty())
-                            ps.errText = "<html><div style='text-align:center; width: 520px'>" + ar.errText + "</div></html>";
-                        else
-                            ps.errText = "Failed to Authencticate Coins";
-
-                        //ps.errText = "Failed to Authencticate Coins";
-                        ps.currentScreen = ProgramState.SCREEN_IMPORT_DONE;
-                    }
-                });
+                System.out.println(AuthenticatorResult.STATUS_ERROR);
                 return;
             } else if (ar.status == AuthenticatorResult.STATUS_FINISHED) {
                 sm.startGraderService(new GraderCb(), ps.duplicates, null);
                 return;
             } else if (ar.status == AuthenticatorResult.STATUS_CANCELLED) {
                 sm.resumeAll();
-                EventQueue.invokeLater(new Runnable() {
-                    public void run() {
-                        ps.errText = "Operation Cancelled";
-                        ps.currentScreen = ProgramState.SCREEN_IMPORT_DONE;
-                    }
-                });
                 return;
             }
 
-            setRAIDAProgressCoins(ar.totalRAIDAProcessed, ar.totalCoinsProcessed, ar.totalCoins);
+//            setRAIDAProgressCoins(ar.totalRAIDAProcessed, ar.totalCoinsProcessed, ar.totalCoins);
             //setRAIDAProgress(ar.totalRAIDAProcessed, ar.totalFilesProcessed, ar.totalFiles);
         }
     }
@@ -253,7 +238,7 @@ public class CheckingRAIDA {
 
             if (fr.status == FrackFixerResult.STATUS_PROCESSING) {
                 //setRAIDAFixingProgress(fr.totalRAIDAProcessed, fr.totalFilesProcessed, fr.totalFiles, fr.fixingRAIDA, fr.round);
-                setRAIDAFixingProgressCoins(fr.totalRAIDAProcessed, fr.totalCoinsProcessed, fr.totalCoins, fr.fixingRAIDA, fr.round);
+//                setRAIDAFixingProgressCoins(fr.totalRAIDAProcessed, fr.totalCoinsProcessed, fr.totalCoins, fr.fixingRAIDA, fr.round);
                 return;
             }
 
@@ -278,10 +263,10 @@ public class CheckingRAIDA {
                 return;
             }
 
-            if (fr.status == FrackFixerResult.STATUS_FINISHED) {
-                if (fr.fixed + fr.failed > 0) {
-                }
-            }
+//            if (fr.status == FrackFixerResult.STATUS_FINISHED) {
+//                if (fr.fixed + fr.failed > 0) {
+//                }
+//            }
 
 //            EventQueue.invokeLater(new Runnable() {
 //                public void run() {
