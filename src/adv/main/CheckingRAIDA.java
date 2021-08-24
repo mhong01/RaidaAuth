@@ -1,13 +1,16 @@
 package adv.main;
 
 import advclient.common.Authenticator.AuthenticatorResult;
+import advclient.common.Exporter.ExporterResult;
 import advclient.common.FrackFixer.FrackFixerResult;
 import advclient.common.Grader.GraderResult;
 import advclient.common.LossFixer.LossFixerResult;
+import advclient.common.Receiver.ReceiverResult;
 import advclient.common.Unpacker.UnpackerResult;
 import advclient.common.Vaulter.VaulterResult;
 import advclient.common.core.*;
 
+import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 import java.util.Enumeration;
@@ -18,7 +21,8 @@ public class CheckingRAIDA {
     private ProgramState ps;
 
     private GLogger logger;
-    
+
+    Wallet[] wallets;
 
     public CheckingRAIDA() {
         initSystem();
@@ -69,10 +73,13 @@ public class CheckingRAIDA {
         }
         if (sm.getWallets().length > 0) {
             System.out.println("there are wallet");
-            Wallet[] wallets = sm.getWallets();
+            wallets = sm.getWallets();
             System.out.println(wallets[0].getName());
         }
+        exportCoinFile();
+    }
 
+    private void importCoinFile() {
         Wallet w = sm.getWalletByName("testDefault");
         System.out.println(w.getName());
         File file = new File("/Users/belphegor/Codes/Raida Auth app/1.CloudCoin.Export.stack");
@@ -82,7 +89,7 @@ public class CheckingRAIDA {
         System.out.println(totalCoins);
         Config.DEFAULT_DEPOSIT_DIR = "/Users/belphegor/Codes/Raida Auth app/";
         AppCore.writeConfig();
-        if(!sm.isRAIDAOK()) {
+        if (!sm.isRAIDAOK()) {
             System.out.println("Raida not OK");
         }
         ps.dstWallet = w;
@@ -94,6 +101,66 @@ public class CheckingRAIDA {
         }
         sm.startUnpackerService(new UnpackerCb());
     }
+
+    private void exportCoinFile() {
+        Config.DEFAULT_EXPORT_DIR = "/Users/belphegor/Codes/Raida Auth app/";
+        final optRv rvFrom = setOptionsForWalletsCommon(false, false, true, null);
+        if (rvFrom.idxs.length == 0) {
+            ps.errText = "No Wallets to Transfer From";
+            maybeShowError();
+            return;
+        }
+
+        final optRv rvTo = setOptionsForWalletsAll(null);
+
+        if (ps.chosenFile.isEmpty())
+            ps.chosenFile = Config.DEFAULT_EXPORT_DIR;
+
+
+
+
+        AppCore.writeConfig();
+
+        Wallet srcWallet = wallets[0];
+        ps.srcWallet = srcWallet;
+
+
+        ps.typedAmount = 1;
+
+        if (ps.typedAmount > srcWallet.getTotal()) {
+            ps.errText = "Insufficient funds";
+            System.out.println(ps.errText);
+            return;
+        }
+
+        if (ps.typedMemo.isEmpty())
+            ps.typedMemo = "Export";
+
+        if (ps.chosenFile.isEmpty()) {
+            ps.errText = "Folder is not chosen";
+            System.out.println(ps.errText);
+            return;
+        }
+        String filename = ps.chosenFile + File.separator + ps.typedAmount + ".CloudCoin." + ps.typedMemo + ".stack";
+        File f = new File(filename);
+        if (f.exists()) {
+            ps.errText = "<html><div style='width:660px;text-align:center'>File with the same Memo already exists in "
+                    + ps.chosenFile + " folder. Use different Memo or change folder for your transfer</div></html>";
+            System.out.println(ps.errText);
+            return;
+        }
+        ps.exportType = Config.TYPE_STACK;
+        ps.sendType = ProgramState.SEND_TYPE_FOLDER;
+        setActiveWallet(ps.srcWallet);
+        sm.setActiveWalletObj(ps.srcWallet);
+
+        if (!sm.isRAIDAOK()) {
+            System.out.println("Raida not OK");
+        }
+
+        sm.startExporterService(ps.exportType, ps.typedAmount, ps.typedMemo, ps.chosenFile, false, new ExporterCb());
+    }
+
     private void setRAIDAProgressCoins(int raidaProcessed, int totalCoinsProcessed, int totalCoins) {
 
         if (totalCoins == 0)
@@ -104,6 +171,7 @@ public class CheckingRAIDA {
 
 
     }
+
     private void setRAIDAFixingProgressCoins(int raidaProcessed, int totalCoinsProcessed, int totalCoins, int fixingRAIDA, int round) {
 
         String stc = AppCore.formatNumber(totalCoinsProcessed);
@@ -293,7 +361,6 @@ public class CheckingRAIDA {
             }
 
 
-
             if (ps.coinIDinFix != null) {
                 ps.coinIDinFix.setNotUpdated();
                 EventQueue.invokeLater(new Runnable() {
@@ -390,6 +457,149 @@ public class CheckingRAIDA {
         }
     }
 
+    class optRv {
+        int[] idxs;
+        String[] options;
+    }
+    class ReceiverCb implements CallbackInterface {
+        public void callback(Object result) {
+            final ReceiverResult rr = (ReceiverResult) result;
+
+
+            ps.receiverReceiptId = rr.receiptId;
+
+            if (rr.status == ReceiverResult.STATUS_PROCESSING) {
+                return;
+            }
+
+            if (rr.status == ReceiverResult.STATUS_CANCELLED) {
+                EventQueue.invokeLater(new Runnable() {
+                    public void run() {
+                        ps.errText = "Operation Cancelled";
+                        if (isWithdrawing())
+                            ps.currentScreen = ProgramState.SCREEN_WITHDRAW_DONE;
+                        else
+                            ps.currentScreen = ProgramState.SCREEN_TRANSFER_DONE;
+
+                        sm.resumeAll();
+                    }
+                });
+                return;
+            }
+
+            if (rr.status == ReceiverResult.STATUS_ERROR) {
+                EventQueue.invokeLater(new Runnable() {
+                    public void run() {
+                        if (isWithdrawing())
+                            ps.currentScreen = ProgramState.SCREEN_WITHDRAW_DONE;
+                        else
+                            ps.currentScreen = ProgramState.SCREEN_TRANSFER_DONE;
+                        if (!rr.errText.isEmpty()) {
+                            if (rr.errText.equals(Config.PICK_ERROR_MSG)) {
+                                System.out.println("Error");
+                            } else {
+                                ps.errText = "<html><div style='text-align:center; width: 520px'>" + rr.errText + "</div></html>";
+                            }
+                        }
+                        else
+                            ps.errText = "Error occurred. Please check the logs";
+
+                    }
+                });
+                return;
+            }
+
+            if (rr.amount <= 0) {
+                EventQueue.invokeLater(new Runnable() {
+                    public void run() {
+                        ps.typedAmount = 0;
+                        ps.errText = "Coins were not received. Please check the logs";
+                        if (isWithdrawing())
+                            ps.currentScreen = ProgramState.SCREEN_WITHDRAW_DONE;
+                        else
+                            ps.currentScreen = ProgramState.SCREEN_TRANSFER_DONE;
+
+                    }
+                });
+                return;
+            }
+
+            String name = null;
+            if (ps.srcWallet != null)
+                name = ps.srcWallet.getName();
+
+            ps.needExtra = rr.needExtra;
+            ps.rrAmount = rr.amount;
+
+            if (!isWithdrawing())
+                sm.startGraderService(new GraderCb(), null, name);
+            else
+                sm.startExporterService(ps.exportType, rr.files, ps.typedMemo, ps.chosenFile, new ExporterCb());
+
+        }
+    }
+
+    class ExporterCb implements CallbackInterface {
+        public void callback(Object result) {
+            final Object eresult = result;
+            final ExporterResult er = (ExporterResult) eresult;
+
+            if (er.status == ExporterResult.STATUS_ERROR) {
+                EventQueue.invokeLater(new Runnable() {
+                    public void run() {
+                        ps.currentScreen = ProgramState.SCREEN_TRANSFER_DONE;
+                        if (!er.errText.isEmpty()) {
+                            if (er.errText.equals(Config.PICK_ERROR_MSG)) {
+                                if (ps.triedToChange) {
+                                    //ps.errText = getPickError(ps.srcWallet);
+                                    ps.errText = "Failed to change coins";
+                                } else {
+                                    ps.frombillpay = false;
+                                    ps.changeFromExport = true;
+                                    ps.triedToChange = true;
+                                    ps.currentScreen = ProgramState.SCREEN_MAKING_CHANGE;
+                                    return;
+                                }
+                                //ps.errText = getPickError(ps.srcWallet);
+                            } else {
+                                ps.errText = er.errText;
+                            }
+                        } else {
+                            ps.errText = "Failed to export coins";
+                            System.out.println(ps.errText);
+                        }
+
+                    }
+                });
+
+                return;
+            }
+
+            if (er.status == ExporterResult.STATUS_FINISHED) {
+                if (er.totalExported != ps.typedAmount) {
+                    EventQueue.invokeLater(new Runnable() {
+                        public void run() {
+                            ps.currentScreen = ProgramState.SCREEN_TRANSFER_DONE;
+                            ps.errText = "Some of the coins were not exported";
+                            System.out.println(ps.errText);
+                        }
+                    });
+                }
+
+                sm.getActiveWallet().appendTransaction(ps.typedMemo, er.totalExported * -1, er.receiptId);
+                sm.getActiveWallet().setNotUpdated();
+//                EventQueue.invokeLater(new Runnable() {
+//                    public void run() {
+//                        ps.currentScreen = ProgramState.SCREEN_SHOW_TRANSACTIONS;
+//                        //ps.currentScreen = ProgramState.SCREEN_TRANSFER_DONE;
+//                    }
+//                });
+
+                return;
+            }
+        }
+    }
+
     public boolean isMakingChange() {
         if (ps.currentScreen == ProgramState.SCREEN_MAKING_CHANGE)
             return true;
@@ -431,7 +641,6 @@ public class CheckingRAIDA {
     }
 
 
-
     public boolean isFixing() {
         if (ps.currentScreen == ProgramState.SCREEN_FIX_FRACKED ||
                 ps.currentScreen == ProgramState.SCREEN_FIXING_FRACKED ||
@@ -440,6 +649,7 @@ public class CheckingRAIDA {
 
         return false;
     }
+
     public boolean isBackupping() {
         if (ps.currentScreen == ProgramState.SCREEN_BACKUP ||
                 ps.currentScreen == ProgramState.SCREEN_BACKUP_DONE ||
@@ -448,4 +658,129 @@ public class CheckingRAIDA {
 
         return false;
     }
+
+    public optRv setOptionsForWalletsCommon(boolean checkFracked, boolean needEmpty, boolean includeSky, String name) {
+        optRv rv = new optRv();
+
+        int cnt = 0;
+        int fc = 0;
+        for (int i = 0; i < wallets.length; i++) {
+            if (!includeSky && wallets[i].isSkyWallet())
+                continue;
+
+            if (wallets[i].getTotal() == 0) {
+                if (needEmpty)
+                    cnt++;
+
+                continue;
+            } else {
+                if (needEmpty)
+                    continue;
+            }
+
+            if (wallets[i].getTotal() == 0)
+                continue;
+
+            if (checkFracked) {
+                fc = AppCore.getFilesCount(Config.DIR_FRACKED, wallets[i].getName());
+                if (fc == 0)
+                    continue;
+            }
+
+            if (name != null && wallets[i].getName().equals(name))
+                continue;
+
+            cnt++;
+        }
+
+        rv.options = new String[cnt];
+        rv.idxs = new int[cnt];
+
+        if (cnt == 0)
+            return rv;
+
+        int j = 0;
+        for (int i = 0; i < wallets.length; i++) {
+            if (!includeSky && wallets[i].isSkyWallet())
+                continue;
+
+            if (wallets[i].getTotal() == 0) {
+                if (!needEmpty)
+                    continue;
+            } else {
+                if (needEmpty)
+                    continue;
+            }
+
+            int wTotal = wallets[i].getTotal();
+            if (checkFracked) {
+                fc = AppCore.getFilesCount(Config.DIR_FRACKED, wallets[i].getName());
+                if (fc == 0)
+                    continue;
+
+                int[][] counters = wallets[i].getCounters();
+                wTotal = AppCore.getTotal(counters[Config.IDX_FOLDER_FRACKED]);
+                //wTotal = fc;
+            }
+
+            if (name != null && wallets[i].getName().equals(name))
+                continue;
+
+
+            rv.options[j] = wallets[i].getName() + " - " + AppCore.formatNumber(wTotal) + " CC";
+            rv.idxs[j] = i;
+            j++;
+        }
+
+        return rv;
+    }
+
+    public void maybeShowError() {
+        if (!ps.errText.isEmpty()) {
+
+            ps.errText = "";
+            if (ps.srcWallet != null)
+                ps.srcWallet.setNotUpdated();
+
+            if (ps.dstWallet != null)
+                ps.dstWallet.setNotUpdated();
+
+        }
+
+    }
+
+    public optRv setOptionsForWalletsAll(String name) {
+        optRv rv = new optRv();
+
+        int len = wallets.length;
+        if (name != null)
+            len -= 1;
+
+        if (len < 0)
+            len = 0;
+
+        rv.options = new String[len];
+        rv.idxs = new int[len];
+
+        if (len == 0)
+            return rv;
+
+        for (int i = 0, j = 0; i < wallets.length; i++) {
+            if (name != null && wallets[i].getName().equals(name))
+                continue;
+
+            rv.options[j] = wallets[i].getName() + " - " + AppCore.formatNumber(wallets[i].getTotal()) + " CC";
+            rv.idxs[j] = i;
+            j++;
+        }
+
+        return rv;
+    }
+    public void setActiveWallet(Wallet wallet) {
+        ps.currentWallet = wallet;
+
+        sm.cancelSecs();
+        sm.setActiveWalletObj(wallet);
+    }
+
 }
