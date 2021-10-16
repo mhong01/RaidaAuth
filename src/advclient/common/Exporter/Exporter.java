@@ -102,13 +102,15 @@ public class Exporter extends Servant {
             tag = Config.DEFAULT_TAG;
 
         logger.debug(ltag, "Export type " + type + " amount " + amount + " dir " + dir + " tag " + tag + " user " + user);
+        System.out.println("Export type " + type + " amount " + amount + " dir " + dir + " tag " + tag + " user " + user);
 
         if (tag.indexOf('.') != -1 || tag.indexOf('/') != -1 || tag.indexOf('\\') != -1) {
             logger.error(ltag, "Invalid tag");
             er.status = ExporterResult.STATUS_ERROR;
             if (cb != null)
                 cb.callback(er);
-            
+
+            System.out.println(ltag +  " Invalid tag");
             return;
         }
       
@@ -118,6 +120,7 @@ public class Exporter extends Servant {
         }
         
         String fullExportPath = AppCore.getUserDir(Config.DIR_EXPORT, user);
+        System.out.println("Full export path " + fullExportPath);
         
         if (dir != null)
             fullExportPath = dir;
@@ -133,6 +136,7 @@ public class Exporter extends Servant {
                     cc = new CloudCoin(values[i]);
                 } catch (JSONException e) {
                     logger.debug(ltag, "Faile to parse cloudcoin: " + values[i]);
+                    System.out.println(ltag +  " Faile to parse cloudcoin: " + values[i]);
                     er.status = ExporterResult.STATUS_ERROR;
                     if (cb != null)
                         cb.callback(er);
@@ -226,6 +230,7 @@ public class Exporter extends Servant {
         
         if (!keepSrc) {
             logger.debug(ltag, "Deleting original files");
+            System.out.println("Deleting original files");
             deletePickedCoins();
             for (CloudCoin cc: coinsPicked) {
                 if (values == null)

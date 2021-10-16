@@ -60,7 +60,7 @@ public class CheckingRAIDA {
         return sm.isRAIDAOK();
     }
 
-    public void setupTempSystem() {
+    public void startServices() {
         ps.typedWalletName = "testDefault";
         ps.typedEmail = "";
         ps.typedPassword = "";
@@ -72,22 +72,32 @@ public class CheckingRAIDA {
 //            return;
         }
         if (sm.getWallets().length > 0) {
-            System.out.println("there are wallet");
+            System.out.println("there are wallet " + sm.getWallets().length);
             wallets = sm.getWallets();
             System.out.println(wallets[0].getName());
+            System.out.println("Amount in wallet: " + wallets[0].getTotal());
+
         }
-        exportCoinFile();
+        /**
+         * Run test
+         */
+        importCoinFile();
+//        exportCoinFile();
     }
 
+    /**
+     * Read file and import coin
+     * Problems: Run well before but not work now, don't know why
+     */
     private void importCoinFile() {
         Wallet w = sm.getWalletByName("testDefault");
         System.out.println(w.getName());
-        File file = new File("/Users/belphegor/Codes/Raida Auth app/1.CloudCoin.Export.stack");
+        File file = new File(".."); //TODO: PATH TO COIN FILE
         System.out.println(file.getAbsolutePath());
         ps.files.add(file.getAbsolutePath());
         String totalCoins = AppCore.calcCoinsFromFilenames(ps.files);
         System.out.println(totalCoins);
-        Config.DEFAULT_DEPOSIT_DIR = "/Users/belphegor/Codes/Raida Auth app/";
+        Config.DEFAULT_DEPOSIT_DIR = ".."; //TODO: DEFAULT DIRECTORY OF APP
         AppCore.writeConfig();
         if (!sm.isRAIDAOK()) {
             System.out.println("Raida not OK");
@@ -99,31 +109,34 @@ public class CheckingRAIDA {
             String name = sm.getActiveWallet().getName();
             AppCore.moveToFolderNoTs(filename, Config.DIR_IMPORT, name);
         }
-        sm.startUnpackerService(new UnpackerCb());
+        sm.startUnpackerService(new UnpackerCb()); //TODO: IMPORT COIN FUNCTION
     }
 
+    /**
+     * Read, check wallet and export coin file
+     * Problems: Could not read the wallet
+     */
     private void exportCoinFile() {
-        Config.DEFAULT_EXPORT_DIR = "/Users/belphegor/Codes/Raida Auth app/";
+        Config.DEFAULT_EXPORT_DIR = ".."; //TODO: DEFAULT DIRECTORY OF APP
         final optRv rvFrom = setOptionsForWalletsCommon(false, false, true, null);
         if (rvFrom.idxs.length == 0) {
             ps.errText = "No Wallets to Transfer From";
+            System.out.println(ps.errText);
             maybeShowError();
-            return;
+//            return;
         }
 
+        // Setup configs
         final optRv rvTo = setOptionsForWalletsAll(null);
 
         if (ps.chosenFile.isEmpty())
             ps.chosenFile = Config.DEFAULT_EXPORT_DIR;
 
 
-
-
         AppCore.writeConfig();
 
         Wallet srcWallet = wallets[0];
         ps.srcWallet = srcWallet;
-
 
         ps.typedAmount = 1;
 
@@ -157,11 +170,18 @@ public class CheckingRAIDA {
         if (!sm.isRAIDAOK()) {
             System.out.println("Raida not OK");
         }
-
-        sm.startExporterService(ps.exportType, ps.typedAmount, ps.typedMemo, ps.chosenFile, false, new ExporterCb());
+        System.out.println("Start export service");
+        sm.startExporterService(ps.exportType, ps.typedAmount, ps.typedMemo, ps.chosenFile, false, new ExporterCb()); //TODO: Export function
     }
 
-    private void setRAIDAProgressCoins(int raidaProcessed, int totalCoinsProcessed, int totalCoins) {
+    /**
+     *
+     * Functions copied from source code to run above functions
+     *
+     *
+     */
+
+     private void setRAIDAProgressCoins(int raidaProcessed, int totalCoinsProcessed, int totalCoins) {
 
         if (totalCoins == 0)
             return;
@@ -571,7 +591,7 @@ public class CheckingRAIDA {
 
                     }
                 });
-
+                System.out.println(ps.errText);
                 return;
             }
 

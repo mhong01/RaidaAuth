@@ -497,8 +497,10 @@ public class AppCore {
     
     static public boolean saveFileAppend(String path, String data, boolean isAppend) {
         File f = new File(path);
+        System.out.println("File exists? " + f.exists());
         if (f.exists() && !isAppend) {
             logger.error(ltag, "File " + path + " already exists");
+            System.out.println("File " + path + " already exists");
             return false;
         }
 
@@ -508,6 +510,7 @@ public class AppCore {
             writer.write(data);
         } catch (IOException e){
             logger.error(ltag, "Failed to write file: " + e.getMessage());
+            System.out.println("Failed to write file: " + e.getMessage());
             return false;
         } finally {
             try{

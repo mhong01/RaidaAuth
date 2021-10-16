@@ -233,6 +233,7 @@ public class ServantManager {
             AppCore.initUserFolders(wallet);
         } catch (Exception e) {
             logger.error(ltag, "Error: " + e.getMessage());
+            System.out.println(e.getMessage());
             return false;
         }
 
@@ -250,6 +251,7 @@ public class ServantManager {
 
         if (!writeConfig(wallet)) {
             logger.error(ltag, "Failed to write conifg");
+            System.out.println("Failed to write conifg");
             return false;
         }
 
@@ -270,6 +272,7 @@ public class ServantManager {
 
         if (!AppCore.saveFile(configFilename, config)) {
             logger.error(ltag, "Failed to save config");
+            System.out.println("Failed to save config");
             return false;
         }
 
